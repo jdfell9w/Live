@@ -1,0 +1,603 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+  <title>Earth Cam WebXR V1 - 9 Refreshing Still Panels</title>
+  <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
+  <style>
+    html, body { margin: 0; width: 100%; height: 100%; background: #000; overflow: hidden; }
+    #overlay {
+      position: fixed;
+      left: 12px;
+      bottom: 12px;
+      max-width: 460px;
+      padding: 10px 12px;
+      color: #d8f7ff;
+      background: rgba(0, 12, 24, 0.72);
+      border: 1px solid rgba(80, 220, 255, 0.45);
+      border-radius: 10px;
+      font: 13px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      z-index: 5;
+    }
+    #overlay b { color: #ffffff; }
+    #overlay code { color: #ffd36e; }
+  </style>
+</head>
+<body>
+  <div id="overlay">
+    <b>Earth Cam WebXR V1</b><br />
+    9 refreshing still-image panels: 3 US, 3 Europe, 3 Japan.<br />
+    Quest: enter VR. Desktop: mouse-look + WASD. Images refresh every <code>60s</code>, staggered.
+  </div>
+
+  <a-scene
+    renderer="antialias: true; colorManagement: true; physicallyCorrectLights: false; sortObjects: true"
+    background="color: #000006"
+    xr-mode-ui="enabled: true"
+    embedded>
+
+    <a-assets timeout="10000"></a-assets>
+
+    <a-entity id="starfield" starfield="count: 900; radius: 80"></a-entity>
+
+    <a-entity light="type: ambient; color: #8fbaff; intensity: 0.48"></a-entity>
+    <a-entity light="type: directional; color: #ffffff; intensity: 0.9" position="-3 5 2"></a-entity>
+    <a-entity light="type: point; color: #4fe7ff; intensity: 0.85; distance: 9" position="0 2.5 -2.8"></a-entity>
+
+    <a-entity id="world" earth-cam-world></a-entity>
+
+    <a-entity id="rig" position="0 1.6 0" simple-vr-navigation>
+      <a-entity id="camera"
+        camera
+        look-controls="pointerLockEnabled: false; magicWindowTrackingEnabled: true"
+        wasd-controls="acceleration: 18"
+        position="0 0 0">
+      </a-entity>
+      <a-entity id="leftHand" laser-controls="hand: left" oculus-touch-controls="hand: left"></a-entity>
+      <a-entity id="rightHand" laser-controls="hand: right" oculus-touch-controls="hand: right"></a-entity>
+    </a-entity>
+  </a-scene>
+
+<script>
+/*
+  Earth Cam WebXR V1
+  - Self-contained scene logic.
+  - Uses remote direct JPG endpoints for panels.
+  - If a camera source fails because of CORS/network, the panel shows a local generated placeholder.
+  - Designed for GitHub Pages + Quest 3 testing.
+*/
+
+const GLOBE_CENTER = new THREE.Vector3(0, 1.62, -3.35);
+const GLOBE_RADIUS = 0.82;
+const REFRESH_SECONDS = 60;
+
+const CAMS = [
+  // US - NOAA/GLERL direct stills
+  {
+    name: "Chicago Skyline",
+    region: "US",
+    lat: 41.88,
+    lon: -87.63,
+    url: "https://www.glerl.noaa.gov/metdata/cams/chi01-tn.jpg",
+    panel: [-2.25, 2.35, -3.45]
+  },
+  {
+    name: "Alpena Marina",
+    region: "US",
+    lat: 45.06,
+    lon: -83.42,
+    url: "https://www.glerl.noaa.gov/metdata/cams/apn04-tn.jpg",
+    panel: [-2.35, 1.62, -3.35]
+  },
+  {
+    name: "Muskegon Pier Light",
+    region: "US",
+    lat: 43.23,
+    lon: -86.34,
+    url: "https://www.glerl.noaa.gov/metdata/cams/mkglight01-tn.jpg",
+    panel: [-2.25, 0.89, -3.45]
+  },
+
+  // Europe - Foto-Webcam direct current/720 stills
+  {
+    name: "Bardolino, Italy",
+    region: "EUROPE",
+    lat: 45.55,
+    lon: 10.72,
+    url: "https://www.foto-webcam.eu/webcam/bardolino/current/720.jpg",
+    panel: [-0.72, 2.86, -3.65]
+  },
+  {
+    name: "Zechneralm, Austria",
+    region: "EUROPE",
+    lat: 46.95,
+    lon: 13.76,
+    url: "https://www.foto-webcam.eu/webcam/zechneralm/current/720.jpg",
+    panel: [0.72, 2.86, -3.65]
+  },
+  {
+    name: "Jenner Sud, Germany",
+    region: "EUROPE",
+    lat: 47.57,
+    lon: 13.02,
+    url: "https://www.foto-webcam.eu/webcam/jenner-sued/current/720.jpg",
+    panel: [0.0, 2.22, -4.15]
+  },
+
+  // Japan - Shizuoka Mt. Fuji current stills
+  {
+    name: "Shimizu Port",
+    region: "JAPAN",
+    lat: 35.02,
+    lon: 138.49,
+    url: "https://www.pref.shizuoka.jp/~live/shimizu/m.jpg",
+    panel: [2.25, 2.35, -3.45]
+  },
+  {
+    name: "Fujinomiya",
+    region: "JAPAN",
+    lat: 35.31,
+    lon: 138.58,
+    url: "https://www.pref.shizuoka.jp/~live/fujinomiya//m.jpg",
+    panel: [2.35, 1.62, -3.35]
+  },
+  {
+    name: "Gotemba",
+    region: "JAPAN",
+    lat: 35.31,
+    lon: 138.93,
+    url: "https://www.pref.shizuoka.jp/~live/gotenba//m.jpg",
+    panel: [2.25, 0.89, -3.45]
+  }
+];
+
+function regionColor(region) {
+  if (region === "US") return "#4fe7ff";
+  if (region === "EUROPE") return "#ffd36e";
+  if (region === "JAPAN") return "#ff7bd5";
+  return "#ffffff";
+}
+
+function latLonToWorld(latDeg, lonDeg, radius = GLOBE_RADIUS) {
+  // Equirectangular-friendly globe position. lon -90 roughly faces left from the default view.
+  const lat = THREE.MathUtils.degToRad(latDeg);
+  const lon = THREE.MathUtils.degToRad(lonDeg);
+  const x = radius * Math.cos(lat) * Math.sin(lon);
+  const y = radius * Math.sin(lat);
+  const z = radius * Math.cos(lat) * Math.cos(lon);
+  return new THREE.Vector3(x, y, z).add(GLOBE_CENTER);
+}
+
+function makeTextCanvas(title, subtitle, color, note) {
+  const c = document.createElement("canvas");
+  c.width = 1280;
+  c.height = 720;
+  const ctx = c.getContext("2d");
+
+  const grad = ctx.createLinearGradient(0, 0, c.width, c.height);
+  grad.addColorStop(0, "#05111e");
+  grad.addColorStop(0.58, "#071e31");
+  grad.addColorStop(1, "#01060d");
+  ctx.fillStyle = grad;
+  ctx.fillRect(0, 0, c.width, c.height);
+
+  // grid
+  ctx.strokeStyle = "rgba(120,220,255,0.15)";
+  ctx.lineWidth = 2;
+  for (let x = 0; x < c.width; x += 80) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, c.height); ctx.stroke();
+  }
+  for (let y = 0; y < c.height; y += 80) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(c.width, y); ctx.stroke();
+  }
+
+  // frame
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 14;
+  ctx.strokeRect(22, 22, c.width - 44, c.height - 44);
+  ctx.strokeStyle = "rgba(255,255,255,0.35)";
+  ctx.lineWidth = 3;
+  ctx.strokeRect(52, 52, c.width - 104, c.height - 104);
+
+  ctx.fillStyle = color;
+  ctx.font = "bold 58px system-ui, sans-serif";
+  ctx.textAlign = "center";
+  ctx.fillText(subtitle, c.width / 2, 245);
+
+  ctx.fillStyle = "#ffffff";
+  ctx.font = "bold 72px system-ui, sans-serif";
+  ctx.fillText(title, c.width / 2, 355);
+
+  ctx.fillStyle = "rgba(216,247,255,0.92)";
+  ctx.font = "32px system-ui, sans-serif";
+  ctx.fillText(note || "waiting for live still image", c.width / 2, 435);
+
+  ctx.fillStyle = "rgba(255,255,255,0.55)";
+  ctx.font = "24px system-ui, sans-serif";
+  ctx.fillText(new Date().toLocaleString(), c.width / 2, 508);
+
+  return c;
+}
+
+function makeTextureFromCanvas(canvas) {
+  const texture = new THREE.CanvasTexture(canvas);
+  texture.colorSpace = THREE.SRGBColorSpace;
+  texture.minFilter = THREE.LinearFilter;
+  texture.magFilter = THREE.LinearFilter;
+  texture.generateMipmaps = false;
+  return texture;
+}
+
+AFRAME.registerComponent("starfield", {
+  schema: {
+    count: {type: "int", default: 700},
+    radius: {type: "number", default: 70}
+  },
+  init: function () {
+    const positions = [];
+    const colors = [];
+    for (let i = 0; i < this.data.count; i++) {
+      const r = this.data.radius * (0.55 + Math.random() * 0.45);
+      const theta = Math.random() * Math.PI * 2;
+      const u = Math.random() * 2 - 1;
+      const phi = Math.acos(u);
+      positions.push(
+        r * Math.sin(phi) * Math.cos(theta),
+        r * Math.cos(phi),
+        r * Math.sin(phi) * Math.sin(theta)
+      );
+      const v = 0.65 + Math.random() * 0.35;
+      colors.push(v, v, v);
+    }
+    const geo = new THREE.BufferGeometry();
+    geo.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+    geo.setAttribute("color", new THREE.Float32BufferAttribute(colors, 3));
+    const mat = new THREE.PointsMaterial({
+      size: 0.055,
+      vertexColors: true,
+      transparent: true,
+      opacity: 0.9,
+      depthWrite: false
+    });
+    const points = new THREE.Points(geo, mat);
+    this.el.object3D.add(points);
+  }
+});
+
+AFRAME.registerComponent("continent-globe", {
+  init: function () {
+    const mesh = this.el.getObject3D("mesh");
+    if (!mesh) {
+      this.el.addEventListener("object3dset", () => this.init());
+      return;
+    }
+    const texture = makeTextureFromCanvas(this.makeEarthCanvas());
+    mesh.material = new THREE.MeshStandardMaterial({
+      map: texture,
+      color: new THREE.Color("#ffffff"),
+      emissive: new THREE.Color("#06182a"),
+      emissiveIntensity: 0.7,
+      roughness: 0.7,
+      metalness: 0.05
+    });
+  },
+
+  makeEarthCanvas: function () {
+    const w = 2048;
+    const h = 1024;
+    const c = document.createElement("canvas");
+    c.width = w;
+    c.height = h;
+    const ctx = c.getContext("2d");
+
+    const bg = ctx.createLinearGradient(0, 0, 0, h);
+    bg.addColorStop(0, "#061225");
+    bg.addColorStop(0.5, "#01070f");
+    bg.addColorStop(1, "#061225");
+    ctx.fillStyle = bg;
+    ctx.fillRect(0, 0, w, h);
+
+    // latitude/longitude grid
+    ctx.strokeStyle = "rgba(90,190,255,0.14)";
+    ctx.lineWidth = 1.5;
+    for (let lon = -180; lon <= 180; lon += 30) {
+      const x = (lon + 180) / 360 * w;
+      ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, h); ctx.stroke();
+    }
+    for (let lat = -60; lat <= 60; lat += 30) {
+      const y = (90 - lat) / 180 * h;
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(w, y); ctx.stroke();
+    }
+
+    const project = (lon, lat) => [(lon + 180) / 360 * w, (90 - lat) / 180 * h];
+    const drawPoly = (pts, stroke, fill) => {
+      ctx.beginPath();
+      pts.forEach((p, i) => {
+        const xy = project(p[0], p[1]);
+        if (i === 0) ctx.moveTo(xy[0], xy[1]);
+        else ctx.lineTo(xy[0], xy[1]);
+      });
+      ctx.closePath();
+      if (fill) { ctx.fillStyle = fill; ctx.fill(); }
+      ctx.strokeStyle = stroke;
+      ctx.lineWidth = 5;
+      ctx.stroke();
+    };
+
+    // Simplified, stylized equirectangular continent outlines.
+    const stroke = "rgba(111,236,255,0.96)";
+    const fill = "rgba(18,120,145,0.20)";
+    drawPoly([[-168,71],[-142,69],[-126,55],[-118,48],[-103,49],[-92,56],[-74,48],[-64,43],[-82,31],[-96,25],[-108,23],[-116,32],[-124,40],[-133,50],[-150,58]], stroke, fill); // North America
+    drawPoly([[-81,12],[-69,10],[-60,2],[-51,-10],[-54,-24],[-60,-38],[-66,-55],[-73,-50],[-76,-34],[-81,-18],[-86,-5]], stroke, fill); // South America
+    drawPoly([[-18,35],[-5,48],[12,55],[30,52],[43,42],[50,30],[42,12],[33,-2],[27,-20],[18,-35],[10,-34],[3,-18],[-7,-5],[-15,10],[-20,25]], stroke, fill); // Africa/Europe simplified
+    drawPoly([[-10,36],[2,45],[16,46],[30,43],[42,46],[60,55],[85,60],[112,54],[135,48],[148,38],[132,24],[104,18],[84,8],[72,20],[57,24],[44,16],[34,28],[22,34],[8,37]], stroke, fill); // Eurasia
+    drawPoly([[110,-11],[125,-17],[143,-25],[154,-38],[145,-44],[132,-35],[118,-30],[112,-22]], stroke, fill); // Australia
+    drawPoly([[138,45],[146,40],[142,34],[136,36]], stroke, fill); // Japan-ish
+    drawPoly([[-52,74],[-25,72],[-28,63],[-48,60]], stroke, fill); // Greenland
+    drawPoly([[-180,-62],[-120,-68],[-60,-66],[0,-70],[60,-66],[120,-68],[180,-62],[180,-90],[-180,-90]], "rgba(180,235,255,0.55)", "rgba(180,235,255,0.08)"); // Antarctica
+
+    // city dots on the map texture
+    CAMS.forEach(cam => {
+      const [x, y] = project(cam.lon, cam.lat);
+      ctx.fillStyle = regionColor(cam.region);
+      ctx.beginPath(); ctx.arc(x, y, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = "rgba(255,255,255,0.8)";
+      ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.arc(x, y, 15, 0, Math.PI * 2); ctx.stroke();
+    });
+
+    return c;
+  }
+});
+
+AFRAME.registerComponent("cam-image-plane", {
+  schema: {
+    url: {type: "string"},
+    name: {type: "string"},
+    region: {type: "string"},
+    stagger: {type: "int", default: 0}
+  },
+  init: function () {
+    this.color = regionColor(this.data.region);
+    this.mesh = null;
+    this.statusText = null;
+    this.lastUrl = "";
+
+    const placeholder = makeTextureFromCanvas(makeTextCanvas(this.data.name, this.data.region, this.color, "initializing panel"));
+    this.el.addEventListener("object3dset", () => {
+      this.mesh = this.el.getObject3D("mesh");
+      if (this.mesh) {
+        this.mesh.material = new THREE.MeshBasicMaterial({map: placeholder, side: THREE.DoubleSide});
+      }
+    });
+
+    setTimeout(() => this.refresh(), this.data.stagger * 1000);
+    this.interval = setInterval(() => this.refresh(), REFRESH_SECONDS * 1000);
+  },
+  remove: function () {
+    if (this.interval) clearInterval(this.interval);
+  },
+  refresh: function () {
+    const mesh = this.el.getObject3D("mesh");
+    if (!mesh) return;
+
+    const cacheBusted = this.data.url + (this.data.url.includes("?") ? "&" : "?") + "t=" + Date.now();
+    this.lastUrl = cacheBusted;
+
+    const loader = new THREE.TextureLoader();
+    loader.setCrossOrigin("anonymous");
+    loader.load(
+      cacheBusted,
+      (texture) => {
+        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.minFilter = THREE.LinearFilter;
+        texture.magFilter = THREE.LinearFilter;
+        texture.generateMipmaps = false;
+        mesh.material.map = texture;
+        mesh.material.needsUpdate = true;
+        const text = this.el.parentElement.querySelector("[data-role='status']");
+        if (text) text.setAttribute("value", "LIVE STILL  " + new Date().toLocaleTimeString());
+      },
+      undefined,
+      () => {
+        const failTexture = makeTextureFromCanvas(makeTextCanvas(this.data.name, this.data.region, this.color, "source blocked or unavailable"));
+        mesh.material.map = failTexture;
+        mesh.material.needsUpdate = true;
+        const text = this.el.parentElement.querySelector("[data-role='status']");
+        if (text) text.setAttribute("value", "PLACEHOLDER / CORS TEST FAILED");
+      }
+    );
+  }
+});
+
+AFRAME.registerComponent("simple-vr-navigation", {
+  init: function () {
+    this.move = new THREE.Vector2(0, 0);
+    this.turn = 0;
+    const left = document.querySelector("#leftHand");
+    const right = document.querySelector("#rightHand");
+
+    if (left) {
+      left.addEventListener("thumbstickmoved", e => {
+        this.move.x = e.detail.x || 0;
+        this.move.y = e.detail.y || 0;
+      });
+      left.addEventListener("thumbsticktouchend", () => this.move.set(0, 0));
+    }
+    if (right) {
+      right.addEventListener("thumbstickmoved", e => {
+        this.turn = e.detail.x || 0;
+      });
+      right.addEventListener("thumbsticktouchend", () => this.turn = 0);
+    }
+  },
+  tick: function (time, dt) {
+    const rig = this.el.object3D;
+    const camera = document.querySelector("#camera").object3D;
+    const seconds = Math.min(dt / 1000, 0.05);
+
+    // Left stick: strafe / forward-back in camera yaw direction.
+    if (Math.abs(this.move.x) > 0.08 || Math.abs(this.move.y) > 0.08) {
+      const speed = 1.6;
+      const dir = new THREE.Vector3();
+      camera.getWorldDirection(dir);
+      dir.y = 0; dir.normalize();
+      const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0, 1, 0)).normalize();
+      rig.position.addScaledVector(dir, -this.move.y * speed * seconds);
+      rig.position.addScaledVector(right, this.move.x * speed * seconds);
+    }
+
+    // Right stick: smooth yaw rotation.
+    if (Math.abs(this.turn) > 0.08) {
+      rig.rotation.y -= this.turn * seconds * 1.25;
+    }
+  }
+});
+
+AFRAME.registerComponent("earth-cam-world", {
+  init: function () {
+    const scene = this.el.sceneEl;
+
+    // Globe base
+    const globe = document.createElement("a-sphere");
+    globe.setAttribute("id", "globe");
+    globe.setAttribute("position", `${GLOBE_CENTER.x} ${GLOBE_CENTER.y} ${GLOBE_CENTER.z}`);
+    globe.setAttribute("radius", GLOBE_RADIUS);
+    globe.setAttribute("segments-width", "96");
+    globe.setAttribute("segments-height", "48");
+    globe.setAttribute("continent-globe", "");
+    this.el.appendChild(globe);
+
+    // Atmosphere shell
+    const atmosphere = document.createElement("a-sphere");
+    atmosphere.setAttribute("position", `${GLOBE_CENTER.x} ${GLOBE_CENTER.y} ${GLOBE_CENTER.z}`);
+    atmosphere.setAttribute("radius", GLOBE_RADIUS * 1.035);
+    atmosphere.setAttribute("segments-width", "96");
+    atmosphere.setAttribute("segments-height", "48");
+    atmosphere.setAttribute("material", "color: #62e9ff; transparent: true; opacity: 0.08; side: back; blending: additive");
+    this.el.appendChild(atmosphere);
+
+    // Equator ring
+    const ring = document.createElement("a-torus");
+    ring.setAttribute("position", `${GLOBE_CENTER.x} ${GLOBE_CENTER.y} ${GLOBE_CENTER.z}`);
+    ring.setAttribute("rotation", "90 0 0");
+    ring.setAttribute("radius", GLOBE_RADIUS * 1.02);
+    ring.setAttribute("radius-tubular", "0.0035");
+    ring.setAttribute("segments-radial", "8");
+    ring.setAttribute("segments-tubular", "160");
+    ring.setAttribute("material", "color: #4fe7ff; transparent: true; opacity: 0.32; blending: additive");
+    this.el.appendChild(ring);
+
+    // Title label
+    const title = document.createElement("a-text");
+    title.setAttribute("value", "EARTH LIVE-STILL MONITOR - WEBXR V1");
+    title.setAttribute("position", "0 3.72 -3.55");
+    title.setAttribute("align", "center");
+    title.setAttribute("width", "4.7");
+    title.setAttribute("color", "#d8f7ff");
+    title.setAttribute("shader", "msdf");
+    this.el.appendChild(title);
+
+    CAMS.forEach((cam, i) => {
+      this.createCityMarker(cam, i);
+      this.createPanel(cam, i);
+      this.createConnector(cam, i);
+    });
+  },
+
+  createCityMarker: function (cam) {
+    const pos = latLonToWorld(cam.lat, cam.lon, GLOBE_RADIUS * 1.035);
+    const dot = document.createElement("a-sphere");
+    dot.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
+    dot.setAttribute("radius", "0.025");
+    dot.setAttribute("segments-width", "16");
+    dot.setAttribute("segments-height", "8");
+    dot.setAttribute("material", `color: ${regionColor(cam.region)}; emissive: ${regionColor(cam.region)}; emissiveIntensity: 1.7`);
+    this.el.appendChild(dot);
+
+    const halo = document.createElement("a-sphere");
+    halo.setAttribute("position", `${pos.x} ${pos.y} ${pos.z}`);
+    halo.setAttribute("radius", "0.048");
+    halo.setAttribute("segments-width", "16");
+    halo.setAttribute("segments-height", "8");
+    halo.setAttribute("material", `color: ${regionColor(cam.region)}; transparent: true; opacity: 0.18; blending: additive`);
+    this.el.appendChild(halo);
+  },
+
+  createPanel: function (cam, i) {
+    const group = document.createElement("a-entity");
+    group.setAttribute("position", `${cam.panel[0]} ${cam.panel[1]} ${cam.panel[2]}`);
+    group.setAttribute("data-panel", cam.name);
+    this.el.appendChild(group);
+
+    // Face toward the viewer near the origin.
+    group.addEventListener("loaded", () => {
+      group.object3D.lookAt(new THREE.Vector3(0, 1.55, 0));
+    });
+
+    const frame = document.createElement("a-plane");
+    frame.setAttribute("width", "1.24");
+    frame.setAttribute("height", "0.78");
+    frame.setAttribute("position", "0 0 0");
+    frame.setAttribute("material", `color: #020a12; transparent: true; opacity: 0.72; side: double`);
+    group.appendChild(frame);
+
+    const accent = document.createElement("a-plane");
+    accent.setAttribute("width", "1.30");
+    accent.setAttribute("height", "0.84");
+    accent.setAttribute("position", "0 0 -0.006");
+    accent.setAttribute("material", `color: ${regionColor(cam.region)}; transparent: true; opacity: 0.16; side: double; blending: additive`);
+    group.appendChild(accent);
+
+    const img = document.createElement("a-plane");
+    img.setAttribute("width", "1.12");
+    img.setAttribute("height", "0.63");
+    img.setAttribute("position", "0 0.035 0.012");
+    img.setAttribute("material", "color: #ffffff; side: double");
+    img.setAttribute("cam-image-plane", `url: ${cam.url}; name: ${cam.name}; region: ${cam.region}; stagger: ${i * 5}`);
+    group.appendChild(img);
+
+    const label = document.createElement("a-text");
+    label.setAttribute("value", `${cam.region} - ${cam.name}`);
+    label.setAttribute("align", "center");
+    label.setAttribute("width", "1.85");
+    label.setAttribute("position", "0 -0.39 0.018");
+    label.setAttribute("color", regionColor(cam.region));
+    label.setAttribute("shader", "msdf");
+    group.appendChild(label);
+
+    const status = document.createElement("a-text");
+    status.setAttribute("data-role", "status");
+    status.setAttribute("value", "queued refresh");
+    status.setAttribute("align", "center");
+    status.setAttribute("width", "1.65");
+    status.setAttribute("position", "0 -0.48 0.018");
+    status.setAttribute("color", "#d8f7ff");
+    status.setAttribute("shader", "msdf");
+    group.appendChild(status);
+  },
+
+  createConnector: function (cam) {
+    const start = latLonToWorld(cam.lat, cam.lon, GLOBE_RADIUS * 1.07);
+    const end = new THREE.Vector3(cam.panel[0], cam.panel[1], cam.panel[2]);
+    // Pull endpoint to front-center of panel area.
+    const mid = new THREE.Vector3().addVectors(start, end).multiplyScalar(0.5);
+    mid.y += 0.16;
+
+    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+    const pts = curve.getPoints(36);
+    const geo = new THREE.BufferGeometry().setFromPoints(pts);
+    const mat = new THREE.LineBasicMaterial({
+      color: new THREE.Color(regionColor(cam.region)),
+      transparent: true,
+      opacity: 0.72,
+      linewidth: 1
+    });
+    const line = new THREE.Line(geo, mat);
+    this.el.object3D.add(line);
+  }
+});
+</script>
+</body>
+</html>
