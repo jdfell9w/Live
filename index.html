@@ -116,8 +116,8 @@ function camSourceMode() {
 
 function faceFrontToward(object3D, target) {
   // THREE.Object3D.lookAt aims the local -Z axis at the target.
-  // PlaneGeometry's readable/front side is +Z, so rotate 180 degrees after lookAt.
-  // Without this, text/image textures can appear mirrored or disappear from the viewer side.
+  // PlaneGeometry front side is +Z, so rotate 180 degrees after lookAt.
+  // Plane materials are also DoubleSide below, preventing blank panels if orientation differs by browser.
   object3D.lookAt(target);
   object3D.rotateY(Math.PI);
 }
@@ -259,7 +259,7 @@ function makeMissingImageTexture(label, color = "#4fe7ff") {
   ctx.fillText(label, c.width / 2, c.height * 0.44);
   ctx.fillStyle = "#cdefff";
   ctx.font = "500 34px system-ui, sans-serif";
-  ctx.fillText("local image slot - check /cams/ path", c.width / 2, c.height * 0.56);
+  ctx.fillText("loading worker/local image slot", c.width / 2, c.height * 0.56);
   return finishTexture(new THREE.CanvasTexture(c));
 }
 
@@ -484,7 +484,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
     ], {width: 1600, height: 220, color: "#d8f7ff", titleSize: 66, subSize: 32});
     const title = new THREE.Mesh(
       new THREE.PlaneGeometry(3.9, 0.54),
-      new THREE.MeshBasicMaterial({map: titleTex, transparent: true, side: THREE.FrontSide, depthTest: false, depthWrite: false})
+      new THREE.MeshBasicMaterial({map: titleTex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false})
     );
     title.position.set(0, 3.78, -3.56);
     faceFrontToward(title, USER_TARGET);
@@ -523,7 +523,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       });
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(1.45, 0.36),
-        new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.FrontSide, depthTest: false, depthWrite: false})
+        new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false})
       );
       mesh.position.set(h.pos[0], h.pos[1], h.pos[2]);
       faceFrontToward(mesh, USER_TARGET);
@@ -599,7 +599,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       color: new THREE.Color("#020b14"),
       transparent: true,
       opacity: 0.82,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
       depthTest: false,
       depthWrite: false
     });
@@ -613,7 +613,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       transparent: true,
       opacity: 0.45,
       blending: THREE.AdditiveBlending,
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
       depthTest: false,
       depthWrite: false
     });
@@ -638,7 +638,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
     const imageMat = new THREE.MeshBasicMaterial({
       map: makeMissingImageTexture(cam.name, color),
       color: new THREE.Color("#ffffff"),
-      side: THREE.FrontSide,
+      side: THREE.DoubleSide,
       transparent: false,
       depthTest: false,
       depthWrite: false
@@ -664,7 +664,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
     });
     const titleMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1.04, 0.18),
-      new THREE.MeshBasicMaterial({map: titleTex, transparent: true, side: THREE.FrontSide, depthTest: false, depthWrite: false})
+      new THREE.MeshBasicMaterial({map: titleTex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false})
     );
     titleMesh.position.set(0, 0.345, 0.040);
     titleMesh.renderOrder = 50;
@@ -680,7 +680,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
     });
     const statusMesh = new THREE.Mesh(
       new THREE.PlaneGeometry(1.04, 0.14),
-      new THREE.MeshBasicMaterial({map: statusTex, transparent: true, side: THREE.FrontSide, depthTest: false, depthWrite: false})
+      new THREE.MeshBasicMaterial({map: statusTex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false})
     );
     statusMesh.position.set(0, -0.345, 0.040);
     statusMesh.renderOrder = 50;
