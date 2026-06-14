@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Earth Cam WebXR V5 - Cloudflare Worker Live Stills</title>
+  <title>Earth Cam WebXR V6 - Cloudflare Worker Live Stills</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body {
@@ -32,7 +32,7 @@
 </head>
 <body>
   <div id="overlay">
-    <b>Earth Cam WebXR V5</b><br />
+    <b>Earth Cam WebXR V6</b><br />
     Cloudflare Worker mode: panels use <code>/cam/*.jpg</code> proxy URLs with CORS headers.<br />
     Browser refreshes panel textures every <code>60s</code>; Worker cache/cron refresh target is <code>5 minutes</code>.<br />
     If no Worker URL is configured, local placeholder images from <code>cams/</code> are used.
@@ -79,7 +79,7 @@
 
 <script>
 /*
-  Earth Cam WebXR V5
+  Earth Cam WebXR V6
   - Uses a Cloudflare Worker image proxy when WORKER_BASE_DEFAULT or ?worker=... is configured.
   - The Worker fetches remote webcam stills, caches for 5 minutes, and serves with CORS headers.
   - The WebXR page refreshes textures every 60 seconds with cache-busting.
@@ -115,11 +115,11 @@ function camSourceMode() {
 }
 
 function faceFrontToward(object3D, target) {
-  // THREE.Object3D.lookAt aims the local -Z axis at the target.
-  // PlaneGeometry front side is +Z, so rotate 180 degrees after lookAt.
-  // Plane materials are also DoubleSide below, preventing blank panels if orientation differs by browser.
+  // DoubleSide materials keep the panels visible from either side.
+  // In Android/Quest Chrome, the extra 180-degree Y rotation made the viewer see
+  // the back of the textured planes, which mirrors text and images.
+  // lookAt(target) alone gives the readable orientation for this scene layout.
   object3D.lookAt(target);
-  object3D.rotateY(Math.PI);
 }
 
 const CAMS = [
@@ -259,7 +259,7 @@ function makeMissingImageTexture(label, color = "#4fe7ff") {
   ctx.fillText(label, c.width / 2, c.height * 0.44);
   ctx.fillStyle = "#cdefff";
   ctx.font = "500 34px system-ui, sans-serif";
-  ctx.fillText("loading worker/local image slot", c.width / 2, c.height * 0.56);
+  ctx.fillText("local image slot - check /cams/ path", c.width / 2, c.height * 0.56);
   return finishTexture(new THREE.CanvasTexture(c));
 }
 
