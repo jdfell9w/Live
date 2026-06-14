@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
-  <title>Earth Cam WebXR V6 - Cloudflare Worker Live Stills</title>
+  <title>Earth Cam WebXR V8 - Outward Panels + Arrow Connectors</title>
   <script src="https://aframe.io/releases/1.5.0/aframe.min.js"></script>
   <style>
     html, body {
@@ -32,7 +32,7 @@
 </head>
 <body>
   <div id="overlay">
-    <b>Earth Cam WebXR V6</b><br />
+    <b>Earth Cam WebXR V8</b><br />
     Cloudflare Worker mode: panels use <code>/cam/*.jpg</code> proxy URLs with CORS headers.<br />
     Browser refreshes panel textures every <code>60s</code>; Worker cache/cron refresh target is <code>5 minutes</code>.<br />
     If no Worker URL is configured, local placeholder images from <code>cams/</code> are used.
@@ -63,7 +63,7 @@
     <a-entity light="type: directional; color: #ffffff; intensity: 0.9" position="-3 5 2"></a-entity>
     <a-entity light="type: point; color: #4fe7ff; intensity: 0.85; distance: 9" position="0 2.5 -2.8"></a-entity>
 
-    <a-entity id="world" earth-cam-world-v5></a-entity>
+    <a-entity id="world" earth-cam-world-v8></a-entity>
 
     <a-entity id="rig" position="0 1.6 0" simple-vr-navigation>
       <a-entity id="camera"
@@ -79,7 +79,7 @@
 
 <script>
 /*
-  Earth Cam WebXR V6
+  Earth Cam WebXR V8
   - Uses a Cloudflare Worker image proxy when WORKER_BASE_DEFAULT or ?worker=... is configured.
   - The Worker fetches remote webcam stills, caches for 5 minutes, and serves with CORS headers.
   - The WebXR page refreshes textures every 60 seconds with cache-busting.
@@ -115,11 +115,12 @@ function camSourceMode() {
 }
 
 function faceFrontToward(object3D, target) {
-  // DoubleSide materials keep the panels visible from either side.
-  // In Android/Quest Chrome, the extra 180-degree Y rotation made the viewer see
-  // the back of the textured planes, which mirrors text and images.
-  // lookAt(target) alone gives the readable orientation for this scene layout.
   object3D.lookAt(target);
+}
+
+function orientPanelOutwardFromEarth(object3D) {
+  // Make the readable face of the panel point away from the globe.
+  object3D.lookAt(GLOBE_CENTER);
 }
 
 const CAMS = [
@@ -131,7 +132,7 @@ const CAMS = [
     lon: -87.63,
     localUrl: "cams/chicago.jpg",
     remoteCandidate: "https://www.glerl.noaa.gov/metdata/cams/chi01-tn.jpg",
-    panel: [-2.45, 2.36, -3.45]
+    panel: [-3.55, 2.55, -3.25]
   },
   {
     id: "alpena",
@@ -141,7 +142,7 @@ const CAMS = [
     lon: -83.42,
     localUrl: "cams/alpena.jpg",
     remoteCandidate: "https://www.glerl.noaa.gov/metdata/cams/apn04-tn.jpg",
-    panel: [-2.55, 1.60, -3.35]
+    panel: [-3.70, 1.60, -3.10]
   },
   {
     id: "muskegon",
@@ -151,7 +152,7 @@ const CAMS = [
     lon: -86.34,
     localUrl: "cams/muskegon.jpg",
     remoteCandidate: "https://www.glerl.noaa.gov/metdata/cams/mkglight01-tn.jpg",
-    panel: [-2.45, 0.84, -3.45]
+    panel: [-3.55, 0.65, -3.25]
   },
 
   {
@@ -162,7 +163,7 @@ const CAMS = [
     lon: 10.72,
     localUrl: "cams/bardolino.jpg",
     remoteCandidate: "https://www.foto-webcam.eu/webcam/bardolino/current/720.jpg",
-    panel: [-0.78, 2.96, -3.72]
+    panel: [-1.35, 3.45, -4.15]
   },
   {
     id: "zechneralm",
@@ -172,7 +173,7 @@ const CAMS = [
     lon: 13.76,
     localUrl: "cams/zechneralm.jpg",
     remoteCandidate: "https://www.foto-webcam.eu/webcam/zechneralm/current/720.jpg",
-    panel: [0.78, 2.96, -3.72]
+    panel: [1.35, 3.45, -4.15]
   },
   {
     id: "jenner",
@@ -182,7 +183,7 @@ const CAMS = [
     lon: 13.02,
     localUrl: "cams/jenner.jpg",
     remoteCandidate: "https://www.foto-webcam.eu/webcam/jenner-sued/current/720.jpg",
-    panel: [0.0, 2.25, -4.18]
+    panel: [0.00, 0.10, -3.75]
   },
 
   {
@@ -193,7 +194,7 @@ const CAMS = [
     lon: 138.49,
     localUrl: "cams/shimizu.jpg",
     remoteCandidate: "https://www.pref.shizuoka.jp/~live/shimizu/m.jpg",
-    panel: [2.45, 2.36, -3.45]
+    panel: [3.55, 2.55, -3.25]
   },
   {
     id: "fujinomiya",
@@ -203,7 +204,7 @@ const CAMS = [
     lon: 138.58,
     localUrl: "cams/fujinomiya.jpg",
     remoteCandidate: "https://www.pref.shizuoka.jp/~live/fujinomiya//m.jpg",
-    panel: [2.55, 1.60, -3.35]
+    panel: [3.70, 1.60, -3.10]
   },
   {
     id: "gotemba",
@@ -213,7 +214,7 @@ const CAMS = [
     lon: 138.93,
     localUrl: "cams/gotemba.jpg",
     remoteCandidate: "https://www.pref.shizuoka.jp/~live/gotenba//m.jpg",
-    panel: [2.45, 0.84, -3.45]
+    panel: [3.55, 0.65, -3.25]
   }
 ];
 
@@ -234,8 +235,47 @@ function finishTexture(texture) {
   texture.minFilter = THREE.LinearFilter;
   texture.magFilter = THREE.LinearFilter;
   texture.generateMipmaps = false;
+  texture.anisotropy = 4;
   texture.needsUpdate = true;
   return texture;
+}
+
+function enhanceImageTextureFromImage(image) {
+  const width = image.naturalWidth || image.videoWidth || image.width || 1280;
+  const height = image.naturalHeight || image.videoHeight || image.height || 720;
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', {willReadFrequently: true});
+  ctx.filter = 'brightness(1.18) contrast(1.16) saturate(1.06)';
+  ctx.drawImage(image, 0, 0, width, height);
+
+  try {
+    const src = ctx.getImageData(0, 0, width, height);
+    const dst = ctx.createImageData(width, height);
+    const s = src.data;
+    const d = dst.data;
+    const amt = 0.22;
+
+    d.set(s);
+    for (let y = 1; y < height - 1; y++) {
+      for (let x = 1; x < width - 1; x++) {
+        const i = (y * width + x) * 4;
+        const li = i - 4, ri = i + 4, ti = i - width * 4, bi = i + width * 4;
+        for (let c = 0; c < 3; c++) {
+          const center = s[i + c];
+          const sharp = 5 * center - s[li + c] - s[ri + c] - s[ti + c] - s[bi + c];
+          d[i + c] = Math.max(0, Math.min(255, center * (1 - amt) + sharp * amt));
+        }
+        d[i + 3] = s[i + 3];
+      }
+    }
+    ctx.putImageData(dst, 0, 0);
+  } catch (e) {
+    // If pixel access fails for any reason, keep the brightness/contrast enhanced image.
+  }
+
+  return finishTexture(new THREE.CanvasTexture(canvas));
 }
 
 function makeMissingImageTexture(label, color = "#4fe7ff") {
@@ -268,7 +308,11 @@ function loadPanelTexture(url, fallbackLabel, color, onDone) {
   if (/^https?:\/\//i.test(url)) loader.setCrossOrigin("anonymous");
   loader.load(
     url,
-    tex => onDone(finishTexture(tex), true),
+    tex => {
+      const enhanced = tex.image ? enhanceImageTextureFromImage(tex.image) : finishTexture(tex);
+      if (tex !== enhanced) tex.dispose();
+      onDone(enhanced, true);
+    },
     undefined,
     () => onDone(makeMissingImageTexture(fallbackLabel, color), false)
   );
@@ -295,6 +339,17 @@ function hexToRgb(hex) {
     g: parseInt(h.substring(2, 4), 16),
     b: parseInt(h.substring(4, 6), 16)
   };
+}
+
+
+function arrowColorForIndex(index, region) {
+  const palettes = {
+    US: ["#37d8ff", "#4fe7ff", "#8cf7ff"],
+    EUROPE: ["#ffbf3c", "#ffd36e", "#ffe79f"],
+    JAPAN: ["#ff5fc8", "#ff7bd5", "#ffa3e6"]
+  };
+  const arr = palettes[region] || ["#ffffff"];
+  return arr[index % arr.length];
 }
 
 function makeTextTexture(lines, options = {}) {
@@ -411,7 +466,7 @@ AFRAME.registerComponent("simple-vr-navigation", {
   }
 });
 
-AFRAME.registerComponent("earth-cam-world-v5", {
+AFRAME.registerComponent("earth-cam-world-v8", {
   init: function () {
     this.group = new THREE.Group();
     this.el.object3D.add(this.group);
@@ -480,7 +535,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
 
     const titleTex = makeTextTexture([
       "EARTH LIVE-STILL MONITOR",
-      "Cloudflare Worker CORS proxy / 5-minute cache target"
+      "Outward-facing panels / curved arrow connectors / 5-minute cache target"
     ], {width: 1600, height: 220, color: "#d8f7ff", titleSize: 66, subSize: 32});
     const title = new THREE.Mesh(
       new THREE.PlaneGeometry(3.9, 0.54),
@@ -509,9 +564,9 @@ AFRAME.registerComponent("earth-cam-world-v5", {
 
   createRegionHeaders: function () {
     const headers = [
-      {label: "US", color: "#4fe7ff", pos: [-2.55, 3.02, -3.42]},
-      {label: "EUROPE", color: "#ffd36e", pos: [0.0, 3.44, -3.78]},
-      {label: "JAPAN", color: "#ff7bd5", pos: [2.55, 3.02, -3.42]}
+      {label: "US", color: "#4fe7ff", pos: [-3.95, 3.22, -3.20]},
+      {label: "EUROPE", color: "#ffd36e", pos: [0.0, 3.90, -4.18]},
+      {label: "JAPAN", color: "#ff7bd5", pos: [3.95, 3.22, -3.20]}
     ];
     headers.forEach(h => {
       const tex = makeTextTexture([h.label, "worker-proxied snapshot group"], {
@@ -523,7 +578,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       });
       const mesh = new THREE.Mesh(
         new THREE.PlaneGeometry(1.45, 0.36),
-        new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.DoubleSide, depthTest: false, depthWrite: false})
+        new THREE.MeshBasicMaterial({map: tex, transparent: true, side: THREE.FrontSide, depthTest: false, depthWrite: false})
       );
       mesh.position.set(h.pos[0], h.pos[1], h.pos[2]);
       faceFrontToward(mesh, USER_TARGET);
@@ -539,7 +594,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       const panelPos = new THREE.Vector3(cam.panel[0], cam.panel[1], cam.panel[2]);
 
       this.createCityMarker(cam, cityPos, color);
-      this.createConnector(cityPos, panelPos, color, index);
+      this.createConnector(cityPos, panelPos, color, index, cam);
       this.createPanel(cam, panelPos, color, index);
     });
   },
@@ -569,36 +624,68 @@ AFRAME.registerComponent("earth-cam-world-v5", {
     this.group.add(halo);
   },
 
-  createConnector: function (start, panelPos, color, index) {
-    // Use a bowed quadratic Bezier curve so the connector looks like it leaves the globe.
+  createConnector: function (start, panelPos, color, index, cam) {
+    const arrowColor = arrowColorForIndex(index, cam.region);
+    const panelDir = panelPos.clone().sub(GLOBE_CENTER).normalize();
+    const end = panelPos.clone().add(panelDir.clone().multiplyScalar(-0.72));
+
+    // Curved arrow with a colorful shaft and cone tip.
     const direction = start.clone().sub(GLOBE_CENTER).normalize();
-    const midpoint = start.clone().lerp(panelPos, 0.48);
-    const lift = 0.22 + 0.06 * (index % 3);
-    const control = midpoint.add(direction.multiplyScalar(0.26)).add(new THREE.Vector3(0, lift, 0));
-    const curve = new THREE.QuadraticBezierCurve3(start, control, panelPos);
-    const tubeGeo = new THREE.TubeGeometry(curve, 32, 0.006, 8, false);
+    const midpoint = start.clone().lerp(end, 0.5);
+    const lift = 0.22 + 0.08 * (index % 3);
+    const side = new THREE.Vector3(panelDir.z, 0, -panelDir.x).normalize().multiplyScalar(((index % 2) ? 0.18 : -0.18));
+    const control = midpoint.add(direction.multiplyScalar(0.30)).add(side).add(new THREE.Vector3(0, lift, 0));
+    const curve = new THREE.QuadraticBezierCurve3(start, control, end);
+
+    const tubeGeo = new THREE.TubeGeometry(curve, 44, 0.009, 10, false);
     const tubeMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color(color),
+      color: new THREE.Color(arrowColor),
       transparent: true,
-      opacity: 0.78,
+      opacity: 0.88,
       blending: THREE.AdditiveBlending,
       depthWrite: false
     });
     const tube = new THREE.Mesh(tubeGeo, tubeMat);
     this.group.add(tube);
+
+    const glowGeo = new THREE.TubeGeometry(curve, 28, 0.018, 8, false);
+    const glowMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(arrowColor),
+      transparent: true,
+      opacity: 0.16,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const glow = new THREE.Mesh(glowGeo, glowMat);
+    this.group.add(glow);
+
+    const tipPos = curve.getPoint(0.992);
+    const tangent = curve.getTangent(0.992).normalize();
+    const coneGeo = new THREE.ConeGeometry(0.040, 0.13, 18);
+    const coneMat = new THREE.MeshBasicMaterial({
+      color: new THREE.Color(arrowColor),
+      transparent: true,
+      opacity: 0.96,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false
+    });
+    const cone = new THREE.Mesh(coneGeo, coneMat);
+    cone.position.copy(tipPos);
+    cone.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), tangent);
+    this.group.add(cone);
   },
 
   createPanel: function (cam, pos, color, index) {
     const rgb = hexToRgb(color);
     const panelGroup = new THREE.Group();
     panelGroup.position.copy(pos);
-    faceFrontToward(panelGroup, USER_TARGET);
+    orientPanelOutwardFromEarth(panelGroup);
 
     // Outer translucent frame.
     const backMat = new THREE.MeshBasicMaterial({
-      color: new THREE.Color("#020b14"),
+      color: new THREE.Color("#061a29"),
       transparent: true,
-      opacity: 0.82,
+      opacity: 0.72,
       side: THREE.DoubleSide,
       depthTest: false,
       depthWrite: false
@@ -613,7 +700,7 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       transparent: true,
       opacity: 0.45,
       blending: THREE.AdditiveBlending,
-      side: THREE.DoubleSide,
+      side: THREE.FrontSide,
       depthTest: false,
       depthWrite: false
     });
@@ -643,8 +730,8 @@ AFRAME.registerComponent("earth-cam-world-v5", {
       depthTest: false,
       depthWrite: false
     });
-    const imagePlane = new THREE.Mesh(new THREE.PlaneGeometry(1.02, 0.574), imageMat);
-    imagePlane.position.set(0, 0.045, 0.024);
+    const imagePlane = new THREE.Mesh(new THREE.PlaneGeometry(1.04, 0.585), imageMat);
+    imagePlane.position.set(0, 0.045, 0.026);
     imagePlane.renderOrder = 30;
     panelGroup.add(imagePlane);
 
