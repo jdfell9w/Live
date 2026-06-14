@@ -1,0 +1,74 @@
+[
+  {
+    "name": "Chicago Skyline",
+    "region": "US",
+    "lat": 41.88,
+    "lon": -87.63,
+    "localFile": "cams/chicago.jpg",
+    "remoteCandidate": "https://www.glerl.noaa.gov/metdata/cams/chi01-tn.jpg"
+  },
+  {
+    "name": "Alpena Marina",
+    "region": "US",
+    "lat": 45.06,
+    "lon": -83.42,
+    "localFile": "cams/alpena.jpg",
+    "remoteCandidate": "https://www.glerl.noaa.gov/metdata/cams/apn04-tn.jpg"
+  },
+  {
+    "name": "Muskegon Pier Light",
+    "region": "US",
+    "lat": 43.23,
+    "lon": -86.34,
+    "localFile": "cams/muskegon.jpg",
+    "remoteCandidate": "https://www.glerl.noaa.gov/metdata/cams/mkglight01-tn.jpg"
+  },
+  {
+    "name": "Bardolino, Italy",
+    "region": "EUROPE",
+    "lat": 45.55,
+    "lon": 10.72,
+    "localFile": "cams/bardolino.jpg",
+    "remoteCandidate": "https://www.foto-webcam.eu/webcam/bardolino/current/720.jpg"
+  },
+  {
+    "name": "Zechneralm, Austria",
+    "region": "EUROPE",
+    "lat": 46.95,
+    "lon": 13.76,
+    "localFile": "cams/zechneralm.jpg",
+    "remoteCandidate": "https://www.foto-webcam.eu/webcam/zechneralm/current/720.jpg"
+  },
+  {
+    "name": "Jenner Sud, Germany",
+    "region": "EUROPE",
+    "lat": 47.57,
+    "lon": 13.02,
+    "localFile": "cams/jenner.jpg",
+    "remoteCandidate": "https://www.foto-webcam.eu/webcam/jenner-sued/current/720.jpg"
+  },
+  {
+    "name": "Shimizu Port",
+    "region": "JAPAN",
+    "lat": 35.02,
+    "lon": 138.49,
+    "localFile": "cams/shimizu.jpg",
+    "remoteCandidate": "https://www.pref.shizuoka.jp/~live/shimizu/m.jpg"
+  },
+  {
+    "name": "Fujinomiya",
+    "region": "JAPAN",
+    "lat": 35.31,
+    "lon": 138.58,
+    "localFile": "cams/fujinomiya.jpg",
+    "remoteCandidate": "https://www.pref.shizuoka.jp/~live/fujinomiya//m.jpg"
+  },
+  {
+    "name": "Gotemba",
+    "region": "JAPAN",
+    "lat": 35.31,
+    "lon": 138.93,
+    "localFile": "cams/gotemba.jpg",
+    "remoteCandidate": "https://www.pref.shizuoka.jp/~live/gotenba//m.jpg"
+  }
+]
